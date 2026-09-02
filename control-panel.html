@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MalwaLive - Control Panel + Firebase</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Oswald:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+  :root{--bg:#0f1115;--card:#181b23;--card2:#1f2431;--border:#2a2f40;--blue:#2d6bff;--red:#ff2a2a;--green:#22c55e;--text:#e6e8ef;--muted:#8b91a7}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:Inter,sans-serif;min-height:100vh}
+  header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(15,17,21,.92);backdrop-filter:blur(12px);z-index:20}
+  header h1{font-family:Oswald,sans-serif;font-size:22px;letter-spacing:.5px}
+  header h1 span{color:var(--blue)}
+  .badge{background:#1a2a55;color:#7aa2ff;border:1px solid #2a4a9a;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:1px}
+  .container{max-width:1250px;margin:0 auto;padding:20px;display:grid;grid-template-columns:360px 1fr 340px;gap:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px}
+  .card h2{font-size:12px;font-weight:800;letter-spacing:1.2px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between}
+  label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.8px;color:var(--muted);margin:10px 0 5px;text-transform:uppercase}
+  input[type=text],input[type=number],textarea{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 11px;color:var(--text);font-size:13px;font-weight:600;outline:none;transition:.2s;font-family:Inter,sans-serif}
+  input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(45,107,255,.2)}
+  textarea{resize:vertical;min-height:90px;font-family:monospace;font-size:11px;line-height:1.4}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row3{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end}
+  .btn{border:0;border-radius:10px;padding:10px 12px;font-size:12.5px;font-weight:800;letter-spacing:.3px;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:6px}
+  .btn:active{transform:scale(.97)}
+  .btn-blue{background:var(--blue);color:#fff}
+  .btn-red{background:var(--red);color:#fff}
+  .btn-green{background:var(--green);color:#000}
+  .btn-ghost{background:var(--card2);border:1px solid var(--border);color:var(--text)}
+  .btn-dark{background:#11131a;border:1px solid var(--border);color:var(--muted)}
+  .score-controls{display:flex;gap:8px;margin-top:6px}
+  .live-toggle{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:10px;cursor:pointer}
+  .dot{width:10px;height:10px;border-radius:50%;background:#333;transition:.2s}
+  .dot.on{background:var(--red);box-shadow:0 0 10px var(--red)}
+  .dot.fb{width:10px;height:10px}
+  .dot.fb.on{background:var(--green);box-shadow:0 0 10px var(--green)}
+  .preview-wrap{background:#000;border:1px solid var(--border);border-radius:16px;overflow:hidden;position:sticky;top:84px}
+  .preview-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border)}
+  .preview-head span{font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted)}
+  .status{font-size:11px;font-weight:700;color:#22c55e;display:flex;align-items:center;gap:6px}
+  .status i{width:8px;height:8px;background:#22c55e;border-radius:50%;display:inline-block;animation:blink 1s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  iframe{width:100%;height:320px;border:0;background:transparent;display:block}
+  .helper{background:linear-gradient(135deg,#1a2a55 0%,#181b23 100%);border:1px solid #2a4a9a;border-radius:12px;padding:12px;margin-top:10px;font-size:11.5px;line-height:1.5;color:#a9b8e0}
+  .helper b{color:#d0ddff}
+  .code-box{position:relative;background:#0d0f14;border:1px solid var(--border);border-radius:10px;padding:10px;max-height:180px;overflow:auto}
+  .copy-btn{position:absolute;top:6px;right:6px;font-size:10px;padding:5px 8px;border-radius:6px}
+  .fb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media(max-width:1180px){.container{grid-template-columns:1fr 1fr} .container > div:last-child{grid-column:1/-1}}
+  @media(max-width:700px){.container{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>MALWA<span>LIVE</span> CONTROL + FIREBASE</h1>
+  <div style="display:flex;gap:8px;align-items:center">
+    <div class="badge" id="modeBadge">● LOCAL SYNC</div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- LEFT: Controls -->
+  <div>
+    <div class="card">
+      <h2>Teams & Scores</h2>
+      <label>Team A (Blue)</label>
+      <input id="teamA" type="text" placeholder="MALWA KINGS">
+      <div class="row3">
+        <div><label>Score A</label><input id="scoreA" type="number" value="0"></div>
+        <button class="btn btn-blue" style="height:40px" onclick="changeScore('A',1)">+1</button>
+        <button class="btn btn-ghost" style="height:40px" onclick="changeScore('A',-1)">-1</button>
+      </div>
+      <label>Team B (Red)</label>
+      <input id="teamB" type="text" placeholder="SANGRUR LIONS">
+      <div class="row3">
+        <div><label>Score B</label><input id="scoreB" type="number" value="0"></div>
+        <button class="btn btn-red" style="height:40px" onclick="changeScore('B',1)">+1</button>
+        <button class="btn btn-ghost" style="height:40px" onclick="changeScore('B',-1)">-1</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn btn-ghost" onclick="swapTeams()">⇄ Swap</button>
+        <button class="btn btn-dark" onclick="resetScores()">Reset 0-0</button>
+      </div>
+      <label style="margin-top:12px">Tournament</label>
+      <input id="tournament" type="text" placeholder="PUNJAB KABADDI CUP 2026">
+      <label>Ticker A</label>
+      <input id="tickerA" type="text">
+      <label>Ticker B</label>
+      <input id="tickerB" type="text">
+      <div class="live-toggle" onclick="toggleLive()"><div class="dot" id="liveDot"></div><div style="flex:1"><div style="font-size:12px;font-weight:800">LIVE Indicator</div><div style="font-size:10px;color:var(--muted)">Overlay te LIVE dikhega</div></div><div id="liveText" style="font-size:10px;font-weight:800">OFF</div></div>
+    </div>
+
+    <div class="card" style="border-color:#2a5a3a">
+      <h2>🔥 Firebase Realtime Sync <span id="fbStatus" style="color:var(--muted)">OFF</span></h2>
+      <div class="helper" style="margin-top:0;margin-bottom:10px;border-color:#2a5a3a">Firebase link karoge taan 2 alag PC / mobile te vi live sync ho jauga. Scoreboard.html v automatically firebase ton data lega.</div>
+      <label>Firebase Config (JSON paste vi kar sakde ho)</label>
+      <textarea id="fbJson" placeholder='Paste full firebaseConfig JSON here... {"apiKey":...}'></textarea>
+      <div class="fb-grid">
+        <div><label>apiKey</label><input id="fb_apiKey" type="text" placeholder="AIza..."></div>
+        <div><label>authDomain</label><input id="fb_authDomain" type="text" placeholder="xxx.firebaseapp.com"></div>
+        <div><label>databaseURL</label><input id="fb_databaseURL" type="text" placeholder="https://xxx.firebaseio.com"></div>
+        <div><label>projectId</label><input id="fb_projectId" type="text"></div>
+        <div><label>storageBucket</label><input id="fb_storageBucket" type="text"></div>
+        <div><label>messagingSenderId</label><input id="fb_messagingSenderId" type="text"></div>
+        <div><label>appId</label><input id="fb_appId" type="text"></div>
+        <div><label>DB Path</label><input id="fb_dbPath" type="text" value="/malwalive/scoreboard"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn btn-green" onclick="connectFirebase()">🔗 Connect & Sync</button>
+        <button class="btn btn-dark" onclick="disconnectFirebase()">Disconnect</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn btn-ghost" onclick="saveFbOnly()">💾 Save Config</button>
+        <button class="btn btn-ghost" onclick="testFirebase()">Test Write</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MIDDLE: Preview -->
+  <div>
+    <div class="preview-wrap">
+      <div class="preview-head"><span>PREVIEW • SCOREBOARD.HTML</span><div class="status"><i></i><span id="syncStatus">SYNCED</span></div></div>
+      <iframe id="preview" src="scoreboard.html"></iframe>
+      <div style="padding:10px 12px;display:flex;gap:8px;background:var(--card);border-top:1px solid var(--border)">
+        <input id="pathInfo" type="text" readonly style="font-size:10px" value="Dono files same folder ch rakho">
+        <button class="btn btn-blue" style="padding:6px 10px;font-size:10px" onclick="reloadPreview()">Reload</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h2>📁 HTML File Copy Option</h2>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px">Scoreboard te Control Panel da pura HTML copy karke kise vi jagah use kar sakde ho</p>
+      <div class="row">
+        <button class="btn btn-blue" onclick="copyFile('scoreboard')">📋 Copy Scoreboard HTML</button>
+        <button class="btn btn-ghost" onclick="copyFile('control')">📋 Copy Control Panel HTML</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn btn-ghost" onclick="downloadFile('scoreboard')">⬇️ Download scoreboard.html</button>
+        <button class="btn btn-ghost" onclick="downloadFile('control')">⬇️ Download control-panel.html</button>
+      </div>
+      <div class="code-box" style="margin-top:12px">
+        <button class="btn btn-dark copy-btn" onclick="copyTextarea()">Copy</button>
+        <textarea id="htmlView" readonly style="background:transparent;border:0;min-height:160px;max-height:300px">Loading...</textarea>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn btn-ghost" onclick="loadPreview('scoreboard')">👁️ View Scoreboard Code</button>
+        <button class="btn btn-ghost" onclick="loadPreview('control')">👁️ View Control Code</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: File & Export -->
+  <div>
+    <div class="card">
+      <h2>Export / Import</h2>
+      <div class="row"><button class="btn btn-ghost" onclick="exportJSON()">💾 Export JSON</button><button class="btn btn-ghost" onclick="document.getElementById('fileInput').click()">📂 Import JSON</button><input id="fileInput" type="file" accept=".json,.txt" style="display:none"></div>
+      <div class="row" style="margin-top:8px"><button class="btn btn-ghost" onclick="copyPaths()">📋 Copy vMix Paths</button><button class="btn btn-ghost" onclick="openScoreboard()">↗️ Open Overlay</button></div>
+      <div class="helper"><b>vMix:</b> Add Input → Browser → scoreboard.html<br><b>Firebase:</b> Agar firebase lagaya hai taan scoreboard.html nu internet ch kahi vi khol sakde ho - oh firebase ton auto update lega.</div>
+    </div>
+
+    <div class="card">
+      <h2>Quick Presets</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <button class="btn btn-ghost" style="font-size:11px" onclick="preset('kabaddi')">Kabaddi</button>
+        <button class="btn btn-ghost" style="font-size:11px" onclick="preset('football')">Football</button>
+        <button class="btn btn-ghost" style="font-size:11px" onclick="preset('cricket')">Cricket</button>
+        <button class="btn btn-ghost" style="font-size:11px" onclick="preset('malwa')">Malwa Default</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Firebase Rules (copy)</h2>
+      <div class="code-box"><pre style="font-size:10px;color:#8bda9a;white-space:pre-wrap">{
+  "rules": {
+    "malwalive": {
+      "scoreboard": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}</pre></div>
+      <p style="font-size:10px;color:var(--muted);margin-top:6px">Firebase Console → Realtime Database → Rules ch paste karo for public read/write. Production ch auth lagao.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY = 'malwalive_scoreboard_v2';
+const FB_KEY = 'malwalive_fb_config';
+const CHANNEL = new BroadcastChannel('malwalive_sync');
+
+function defaults(){ return {teamA:'MALWA KINGS',teamB:'SANGRUR LIONS',scoreA:0,scoreB:0,tournament:'PUNJAB KABADDI CUP 2026',tickerA:'MALWA LIVE • WWW.MALWALIVE1.COM •',tickerB:'LIVE SCORE • MALWA LIVE •',live:true,lastGoal:null}; }
+
+let state = defaults();
+try{ const s=localStorage.getItem(KEY); if(s) state={...defaults(),...JSON.parse(s)}; }catch{}
+
+const els = {teamA:document.getElementById('teamA'),teamB:document.getElementById('teamB'),scoreA:document.getElementById('scoreA'),scoreB:document.getElementById('scoreB'),tournament:document.getElementById('tournament'),tickerA:document.getElementById('tickerA'),tickerB:document.getElementById('tickerB'),liveDot:document.getElementById('liveDot'),liveText:document.getElementById('liveText')};
+
+function fillInputs(){ els.teamA.value=state.teamA; els.teamB.value=state.teamB; els.scoreA.value=state.scoreA; els.scoreB.value=state.scoreB; els.tournament.value=state.tournament; els.tickerA.value=state.tickerA; els.tickerB.value=state.tickerB; updateLiveUI(); }
+function updateLiveUI(){ if(state.live){ els.liveDot.classList.add('on'); els.liveText.textContent='ON'; els.liveText.style.color='#ff6b6b'; } else { els.liveDot.classList.remove('on'); els.liveText.textContent='OFF'; els.liveText.style.color='var(--muted)'; } }
+
+let fbApp=null, fbDb=null, fbRef=null;
+function getFbConfig(){ try{ return JSON.parse(localStorage.getItem(FB_KEY)||'null'); }catch{return null;} }
+
+function initFirebaseFromStorage(){
+  const cfg = getFbConfig(); if(!cfg || !cfg.enabled) return;
+  try{
+    if(fbApp) firebase.app().delete().then(()=>{fbApp=null; doInit(cfg);}); else doInit(cfg);
+  }catch(e){ doInit(cfg); }
+}
+function doInit(cfg){
+  try{
+    const fbConfig={apiKey:cfg.apiKey,authDomain:cfg.authDomain,databaseURL:cfg.databaseURL,projectId:cfg.projectId,storageBucket:cfg.storageBucket||'',messagingSenderId:cfg.messagingSenderId||'',appId:cfg.appId||''};
+    fbApp=firebase.initializeApp(fbConfig);
+    fbDb=firebase.database();
+    fbRef=fbDb.ref(cfg.dbPath||'/malwalive/scoreboard');
+    document.getElementById('fbStatus').textContent='CONNECTED'; document.getElementById('fbStatus').style.color='#22c55e';
+    document.getElementById('modeBadge').textContent='● FIREBASE SYNC'; document.getElementById('modeBadge').style.background='#14331a'; document.getElementById('modeBadge').style.color='#6ee7a0';
+    fbRef.on('value', snap=>{
+      const val=snap.val(); if(!val) return;
+      if(val._ts && state._ts && val._ts===state._ts) return;
+      state={...defaults(),...val}; fillInputs(); saveLocalOnly();
+      document.getElementById('syncStatus').textContent='FIREBASE '+new Date().toLocaleTimeString();
+    });
+  }catch(err){ console.error(err); alert('Firebase connect fail: '+err.message); }
+}
+
+function saveLocalOnly(){ localStorage.setItem(KEY, JSON.stringify(state)); CHANNEL.postMessage({type:'update',payload:state}); }
+
+function save(newGoal=null){
+  state.teamA=els.teamA.value||'TEAM A'; state.teamB=els.teamB.value||'TEAM B'; state.scoreA=parseInt(els.scoreA.value)||0; state.scoreB=parseInt(els.scoreB.value)||0; state.tournament=els.tournament.value||'TOURNAMENT'; state.tickerA=els.tickerA.value||''; state.tickerB=els.tickerB.value||''; state.lastGoal=newGoal; state._ts=Date.now();
+  localStorage.setItem(KEY, JSON.stringify(state));
+  CHANNEL.postMessage({type:'update',payload:state});
+  document.getElementById('syncStatus').textContent='SYNCED '+new Date().toLocaleTimeString();
+  // Firebase push
+  if(fbRef){ fbRef.set(state).catch(e=>console.warn(e)); }
+  if(newGoal){ setTimeout(()=>{ const cleaned={...state,lastGoal:null,_ts:Date.now()}; localStorage.setItem(KEY, JSON.stringify(cleaned)); CHANNEL.postMessage({type:'update',payload:cleaned}); if(fbRef) fbRef.set(cleaned); },1200); }
+}
+
+function changeScore(t,d){ if(t==='A'){ let v=(parseInt(els.scoreA.value)||0)+d; if(v<0)v=0; els.scoreA.value=v; save('A'); } else { let v=(parseInt(els.scoreB.value)||0)+d; if(v<0)v=0; els.scoreB.value=v; save('B'); } }
+function swapTeams(){ const aT=els.teamA.value,bT=els.teamB.value,aS=els.scoreA.value,bS=els.scoreB.value; els.teamA.value=bT; els.teamB.value=aT; els.scoreA.value=bS; els.scoreB.value=aS; save(); }
+function resetScores(){ els.scoreA.value=0; els.scoreB.value=0; save(); }
+function toggleLive(){ state.live=!state.live; updateLiveUI(); save(); }
+function reloadPreview(){ document.getElementById('preview').src='scoreboard.html?'+Date.now(); }
+function exportJSON(){ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='malwalive_settings.json'; a.click(); URL.revokeObjectURL(url); }
+function copyPaths(){ const txt=`Scoreboard: ${location.href.replace('control-panel.html','scoreboard.html')}\nControl: ${location.href}\nvMix: Add Input > Web Browser > 1920x400`; navigator.clipboard.writeText(txt).then(()=>alert('Copied!')); }
+function openScoreboard(){ window.open('scoreboard.html','_blank'); }
+
+// Firebase UI
+function fillFbInputs(){
+  const cfg=getFbConfig(); if(!cfg) return;
+  document.getElementById('fb_apiKey').value=cfg.apiKey||''; document.getElementById('fb_authDomain').value=cfg.authDomain||''; document.getElementById('fb_databaseURL').value=cfg.databaseURL||''; document.getElementById('fb_projectId').value=cfg.projectId||''; document.getElementById('fb_storageBucket').value=cfg.storageBucket||''; document.getElementById('fb_messagingSenderId').value=cfg.messagingSenderId||''; document.getElementById('fb_appId').value=cfg.appId||''; document.getElementById('fb_dbPath').value=cfg.dbPath||'/malwalive/scoreboard';
+  document.getElementById('fbJson').value=cfg.raw||'';
+}
+function readFbFromInputs(){
+  let json={};
+  const rawJson = document.getElementById('fbJson').value.trim();
+  if(rawJson){
+    try{ const p=JSON.parse(rawJson); json={apiKey:p.apiKey,authDomain:p.authDomain,databaseURL:p.databaseURL,projectId:p.projectId,storageBucket:p.storageBucket,messagingSenderId:p.messagingSenderId,appId:p.appId,raw:rawJson}; }catch(e){}
+  }
+  return {apiKey:document.getElementById('fb_apiKey').value||json.apiKey||'',authDomain:document.getElementById('fb_authDomain').value||json.authDomain||'',databaseURL:document.getElementById('fb_databaseURL').value||json.databaseURL||'',projectId:document.getElementById('fb_projectId').value||json.projectId||'',storageBucket:document.getElementById('fb_storageBucket').value||json.storageBucket||'',messagingSenderId:document.getElementById('fb_messagingSenderId').value||json.messagingSenderId||'',appId:document.getElementById('fb_appId').value||json.appId||'',dbPath:document.getElementById('fb_dbPath').value||'/malwalive/scoreboard',raw:rawJson||json.raw||'',enabled:true};
+}
+function saveFbOnly(){ const cfg=readFbFromInputs(); if(!cfg.apiKey||!cfg.databaseURL){ alert('apiKey te databaseURL zaruri ne'); return; } localStorage.setItem(FB_KEY, JSON.stringify(cfg)); alert('Firebase config save ho gaya!'); fillFbInputs(); }
+function connectFirebase(){ saveFbOnly(); initFirebaseFromStorage(); save(); }
+function disconnectFirebase(){ localStorage.removeItem(FB_KEY); if(fbRef) fbRef.off(); fbApp=null; fbDb=null; fbRef=null; document.getElementById('fbStatus').textContent='OFF'; document.getElementById('modeBadge').textContent='● LOCAL SYNC'; alert('Firebase disconnected - hun local sync te hai'); location.reload(); }
+function testFirebase(){ if(!fbRef){ alert('Pehla Connect karo'); return; } fbRef.set(state).then(()=>alert('Firebase write success!')).catch(e=>alert('Fail: '+e.message)); }
+
+document.getElementById('fbJson').addEventListener('input', ()=>{
+  try{ const p=JSON.parse(document.getElementById('fbJson').value); document.getElementById('fb_apiKey').value=p.apiKey||''; document.getElementById('fb_authDomain').value=p.authDomain||''; document.getElementById('fb_databaseURL').value=p.databaseURL||''; document.getElementById('fb_projectId').value=p.projectId||''; document.getElementById('fb_storageBucket').value=p.storageBucket||''; document.getElementById('fb_messagingSenderId').value=p.messagingSenderId||''; document.getElementById('fb_appId').value=p.appId||''; }catch{}
+});
+
+document.getElementById('fileInput').addEventListener('change', (e)=>{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=(ev)=>{ try{ const data=JSON.parse(ev.target.result); state={...defaults(),...data,lastGoal:null}; fillInputs(); save(); alert('Load ho gaya'); }catch(err){ alert('JSON chahida'); } }; reader.readAsText(file); });
+
+let timer; ['teamA','teamB','tournament','tickerA','tickerB','scoreA','scoreB'].forEach(id=>{ document.getElementById(id).addEventListener('input', ()=>{ clearTimeout(timer); timer=setTimeout(()=>save(),400); }); });
+
+// HTML copy logic
+let cachedFiles = {scoreboard:null, control:null};
+async function fetchFile(name){
+  const url = name==='scoreboard' ? 'scoreboard.html' : 'control-panel.html';
+  try{ const res=await fetch(url); const txt=await res.text(); cachedFiles[name]=txt; return txt; }catch(e){
+    // fallback: use current document for control
+    if(name==='control'){ const txt=document.documentElement.outerHTML; cachedFiles[name]=txt; return txt; }
+    return null;
+  }
+}
+async function loadPreview(name){ const txt = cachedFiles[name] || await fetchFile(name); if(txt){ document.getElementById('htmlView').value=txt; } else { document.getElementById('htmlView').value='File not found - same folder ch dono files rakho'; } }
+async function copyFile(name){ const txt = cachedFiles[name] || await fetchFile(name); if(!txt){ alert('File nahi mili'); return; } await navigator.clipboard.writeText(txt); alert(name+' HTML copy ho gaya!'); document.getElementById('htmlView').value=txt; }
+function copyTextarea(){ const t=document.getElementById('htmlView'); t.select(); navigator.clipboard.writeText(t.value).then(()=>alert('Copied!')); }
+async function downloadFile(name){ const txt = cachedFiles[name] || await fetchFile(name); if(!txt){ alert('File nahi mili'); return; } const blob=new Blob([txt],{type:'text/html'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name==='scoreboard'?'scoreboard.html':'control-panel.html'; a.click(); URL.revokeObjectURL(url); }
+
+function preset(type){ if(type==='kabaddi'){ els.tournament.value='PUNJAB KABADDI OPEN CUP 2026'; els.tickerA.value='KABADDI • KABADDI • MALWA LIVE'; els.tickerB.value='LIVE FROM SANGRUR • KABADDI FEVER'; } if(type==='football'){ els.tournament.value='MALWA FOOTBALL LEAGUE FINAL'; els.tickerA.value='GOAL! • FOOTBALL LIVE'; els.tickerB.value='MALWALIVE1.COM • LIVE'; } if(type==='cricket'){ els.tournament.value='T20 CRICKET PREMIER LEAGUE'; els.tickerA.value='4 • 6 • WICKET • LIVE SCORE'; els.tickerB.value='MALWA LIVE • CRICKET'; } if(type==='malwa'){ state=defaults(); fillInputs(); save(); return; } save(); }
+
+fillInputs(); fillFbInputs(); initFirebaseFromStorage();
+loadPreview('scoreboard');
+</script>
+</body>
+</html>
